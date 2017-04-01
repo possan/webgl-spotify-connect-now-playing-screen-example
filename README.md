@@ -3,7 +3,7 @@ WebGL Now Playing Hack
 
 ![Obligatory 10mb gif](kung10mb.gif)
 
-A example of how to use the Spotify Connect Web API to render the currently playing artwork in a slightly different way using WebGL.
+A example of how to use the newly released [Spotify Connect Web APIs](https://developer.spotify.com/web-api/web-api-connect-endpoint-reference/) to render the currently playing artwork in a slightly different way using WebGL.
 
 Just open [index.html](index.html) and it should ask you for permission to know what you are currently playing and to control playback.
 
