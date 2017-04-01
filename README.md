@@ -11,4 +11,6 @@ Download the repo, run `python -m SimpleHTTPServer 8000` in the folder that you 
 
 While it's running, you can click on the progress bar/scrubber to seek in the track, or use your keyboard to control playback, `space` toggles play/pause, `left` skips to the previous track, `right` skips to the next track.
 
+It uses my [polyserver](https://github.com/possan/polyserver) hack to vectorize the album covers into triangle data for the renderer, please don't overload it :)
+
 Enjoy.
