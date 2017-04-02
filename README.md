@@ -1,5 +1,5 @@
-WebGL Now Playing Hack (with bonous artist images)
-==================================================
+WebGL Now Playing Hack (with bonus artist images)
+=================================================
 
 ![Obligatory 10mb gif](kung10mb.gif)
 
