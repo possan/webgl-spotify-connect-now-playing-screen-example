@@ -36,6 +36,10 @@ var firstTime = 0;
 var globalTime = 0;
 var state = 'blank';
 var stateStart = 0;
+var beatValue = 0.0;
+var beatValue2 = 0.0;
+var beatValue4 = 0.0;
+var beatDelta = 0.0;
 
 // player state
 var artistName = '';
@@ -43,12 +47,16 @@ var albumImageURL = '';
 var albumName = '';
 var albumURI = '';
 var visibleAlbumURI = '';
+var trackedTrackURI = '';
 var nextVectorData = null;
 var trackDuration = 180000;
 var trackURI = '';
 var trackPosition = 0;
 var trackPlaying = false;
 var trackName = '';
+var trackAnalysis = null;
+var trackBeats = [];
+var nextTrackBeat = 0;
 
 // misc ui
 var closetimer = 0;
@@ -437,18 +445,20 @@ function drawScene() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   var fov = 50;
-  mat4.perspective(fov, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+  mat4.perspective(fov, gl.viewportWidth / gl.viewportHeight, 0.1, 120.0, pMatrix);
+
+  var T = globalTime + 150 * beatDelta;
 
   eyeFrom = [
-    0.0 + 0.3 * Math.sin(globalTime / 1950),
-    0.0 + 0.3 * Math.cos(globalTime / 1730),
-    0.0 + 0.4 * Math.cos(globalTime / 1463) - 0.75
+    0.0 + 0.3 * Math.sin(T / 1950),
+    0.0 + 0.3 * Math.cos(T / 1730),
+    0.0 + 0.6 * Math.cos(T / 1463) - 1.0 //  + 0.1 * beatValue
   ];
 
   eyeTo = [
-    0.0 + 0.1 * Math.sin(globalTime / 2250),
-    0.0 + 0.1 * Math.cos(globalTime / 1730),
-    0.0 + 0.1 * Math.cos(globalTime / 1963) + 0.0
+    0.0 + 0.1 * Math.sin(T / 2250),
+    0.0 + 0.1 * Math.cos(T / 1730),
+    0.0 + 0.1 * Math.cos(T / 1963) + 0.0
   ];
 
   vec3.subtract(eyeTo, eyeFrom, eyeVector);
@@ -484,6 +494,33 @@ function drawScene() {
 function tick() {
   requestAnimFrame(tick);
   gl.uniform1f(shaderProgram.timeUniform, globalTime);
+
+  var t = (new Date()).getTime();
+  if (lastTrackPositionUpdate == 0) {
+    lastTrackPositionUpdate = t;
+  }
+
+  var dt = t - lastTrackPositionUpdate;
+  lastTrackPositionUpdate = t;
+
+  if (trackPlaying) {
+    trackPosition += dt;
+  }
+
+  // find beat changes
+  // console.log('trackPosition', trackPosition);
+  var i = nextTrackBeat;
+  while(i < trackBeats.length && trackPosition > trackBeats[i]) {
+    i ++;
+  }
+  if (i > nextTrackBeat) {
+    console.log('BEAT #' + i + ' at ' + trackPosition + ' ms')
+    nextTrackBeat = i;
+    beatValue = 1.0;
+    if (i % 2 == 0) beatValue2 = 1.0;
+    if (i % 4 == 0) beatValue4 = 1.0;
+    beatDelta += 1.0;
+  }
 
   var progress = -2.0;
   var stateTime = 0;
@@ -531,8 +568,11 @@ function tick() {
     }
   }
 
-  var t2 = Math.sin(globalTime / 1000.0) * Math.max(0, Math.sin(globalTime / 4600.0));
-  var t3 = Math.cos(globalTime / 1300.0) * Math.max(0, Math.cos(globalTime / 5400.0));
+  var t2 = Math.sin(globalTime / 1000.0) * Math.max(0, 0.3 + 0.5 * Math.sin(globalTime / 4600.0));
+  var t3 = Math.cos(globalTime / 1300.0) * Math.max(0, 0.3 + 0.5 * Math.cos(globalTime / 5400.0));
+
+  t2 += beatValue * 0.2 * Math.max(0, 0.3 + 0.5 * Math.sin(globalTime / 3600.0));
+  t3 += beatValue2 * 0.2 * Math.max(0, 0.3 + 0.5 * Math.sin(globalTime / 5100.0));
 
   gl.uniform1f(shaderProgram.progressUniform, progress);
   gl.uniform1f(shaderProgram.wobble1Uniform, t2);
@@ -545,6 +585,19 @@ function tick() {
     firstTime = timeNow;
   }
   globalTime = timeNow - firstTime;
+
+  beatValue -= 0.03;
+  if (beatValue < 0.0) {
+    beatValue = 0.0;
+  }
+  beatValue2 -= 0.03;
+  if (beatValue2 < 0.0) {
+    beatValue2 = 0.0;
+  }
+  beatValue4 -= 0.03;
+  if (beatValue4 < 0.0) {
+    beatValue4 = 0.0;
+  }
 }
 
 
@@ -555,17 +608,17 @@ function tick() {
 // --------------------------------------------------------------------------------------
 
 function updateTrackPosition() {
-  var t = (new Date()).getTime();
-  if (lastTrackPositionUpdate == 0) {
-    lastTrackPositionUpdate = t;
-  }
+  // var t = (new Date()).getTime();
+  // if (lastTrackPositionUpdate == 0) {
+  //   lastTrackPositionUpdate = t;
+  // }
 
-  var dt = t - lastTrackPositionUpdate;
-  lastTrackPositionUpdate = t;
+  // var dt = t - lastTrackPositionUpdate;
+  // lastTrackPositionUpdate = t;
 
-  if (trackPlaying) {
-    trackPosition += dt;
-  }
+  // if (trackPlaying) {
+  //   trackPosition += dt;
+  // }
 
   var w = trackPosition * 100 / trackDuration;
   w = Math.max(Math.min(100, w), 0);
@@ -591,13 +644,43 @@ function toast(title, subtitle) {
   }, 5000);
 }
 
+function fetchTrackAnalysis() {
+  var id = trackURI.split(':')[2];
+  createAuthorizedRequest('GET', 'https://api.spotify.com/v1/audio-analysis/' + id, function(request) {
+    if (request.status < 200 || request.status >= 400) {
+      // callback(null);
+      return;
+    }
+
+    var data = JSON.parse(request.responseText);
+    console.log('got analysis data', data);
+    trackAnalysis = data;
+    trackBeats = data.beats.map(function(x) {
+      return Math.round(x.start * 1000.0);
+    });
+    trackBeats.sort(function(a, b) {
+      if (a < b) return -1;
+      if (a > b) return 1;
+      return 0;
+    });
+    console.log('beats', trackBeats);
+    // callback(data);
+  }).send();
+
+}
+
 function setNowPlayingTrack(uri) {
   if (uri == trackURI) {
     return;
   }
 
   trackURI = uri;
+  trackAnalysis = null;
+  nextTrackBeat = 0;
+  trackBeats = [];
+
   toast(trackName, artistName + ' - ' + albumName);
+  fetchTrackAnalysis();
 }
 
 function login() {
