@@ -7,8 +7,11 @@
 
 // Global all the things/variables!
 
+// all the great stuff is @possan's, @plamere just added the bits
+// where we get/show artist images in addition to the cover art
+
 // auth
-var CLIENT_ID = '8da32c6e9f9f4edab31faa41d9f10afd';
+var CLIENT_ID = 'cd0cbddc0c604e839784cfb2b59f8273';
 var SCOPES = [
   'user-read-currently-playing',
   'user-read-playback-state',
@@ -39,20 +42,21 @@ var stateStart = 0;
 
 // player state
 var artistName = '';
-var albumImageURL = '';
 var albumName = '';
-var albumURI = '';
-var visibleAlbumURI = '';
+var visibleAlbumImageURL = '';
 var nextVectorData = null;
 var trackDuration = 180000;
 var trackURI = '';
 var trackPosition = 0;
 var trackPlaying = false;
 var trackName = '';
+var imageList = [];
+var curTrack = null;
 
 // misc ui
 var closetimer = 0;
-
+var fadeinTime = 10000;
+var fadeoutTime = 4000;
 
 
 // --------------------------------------------------------------------------------------
@@ -114,12 +118,10 @@ function _pollCurrentlyPlaying(callback) {
       var data = JSON.parse(request.responseText);
       console.log('got data', data);
       if (data.item) {
-        albumURI = data.item.album.uri;
-        albumImageURL = data.item.album.images[0].url;
         trackName = data.item.name;
         albumName = data.item.album.name;
         artistName = data.item.artists[0].name;
-        setNowPlayingTrack(data.item.uri);
+        setNowPlayingTrack(data.item);
         trackPosition = data.progress_ms;
         trackDuration = data.item.duration_ms;
         trackPlaying = data.is_playing
@@ -159,6 +161,17 @@ function sendPlayCommand(payload) {
     }
     pollCurrentlyPlaying(1500);
   }).send(JSON.stringify(payload));
+}
+
+function fetchArtist(artist_uri, callback) {
+  console.log("fetching artist", artist_uri);
+  var aid = artist_uri.split(':')[2];
+  createAuthorizedRequest('GET', 'https://api.spotify.com/v1/artists/' + aid, function(request) {
+    if (request.status >= 200 && request.status < 400) {
+      var data = JSON.parse(request.responseText);
+      callback(data);
+    }
+  }).send();
 }
 
 function sendCommand(method, command, querystring) {
@@ -488,11 +501,12 @@ function tick() {
   var progress = -2.0;
   var stateTime = 0;
 
+  var albumImageURL = getImageUrl();
   if (state == 'blank') {
     progress = -2.0;
-    if (albumURI != visibleAlbumURI) {
-      console.log('Album URI changed: ' + albumURI);
-      visibleAlbumURI = albumURI;
+    if (albumImageURL != visibleAlbumImageURL) {
+      console.log('Album URI changed: ' + albumImageURL);
+      visibleAlbumImageURL = albumImageURL;
       console.log('Got album image..');
       fetchVectors(albumImageURL, function () {
         console.log('Got album vectors..');
@@ -505,8 +519,8 @@ function tick() {
     }
   } else if (state == 'fadein') {
     stateTime = globalTime - stateStart;
-    progress = -2.0 + stateTime / 7000.0;
-    if (stateTime > 14000.0) {
+    progress = -2.0 + stateTime / (fadeinTime / 2);
+    if (stateTime > fadeinTime) {
       console.log('Fade in done.');
       state = 'visible';
       stateTime = 0.0;
@@ -514,7 +528,7 @@ function tick() {
     }
   } else if (state == 'visible') {
     progress = 0.0;
-    if (albumURI != visibleAlbumURI) {
+    if (albumImageURL != visibleAlbumImageURL) {
       console.log('Fading out...');
       state = 'fadeout';
       stateTime = 0.0;
@@ -522,8 +536,8 @@ function tick() {
     }
   } else if (state == 'fadeout') {
     stateTime = globalTime - stateStart;
-    progress = 0.0 + stateTime / 2500.0;
-    if (stateTime > 5000.0) {
+    progress = 0.0 + stateTime / (fadeoutTime / 2)
+    if (stateTime > fadeoutTime) {
       console.log('Faded out.');
       state = 'blank';
       stateTime = 0.0;
@@ -591,13 +605,45 @@ function toast(title, subtitle) {
   }, 5000);
 }
 
-function setNowPlayingTrack(uri) {
+function setNowPlayingTrack(track) {
+  var uri = track.uri;
   if (uri == trackURI) {
     return;
   }
-
+  curTrack = track;
+  imageList.length = 0;
+  imageList.push(track.album.images[0].url);
+  fetchArtist(track.artists[0].uri, function(artist) {
+    artist.images.forEach(function(image) {
+        if (image.width >= 640) {
+            imageList.push(image.url);
+        }
+    });
+  });
   trackURI = uri;
   toast(trackName, artistName + ' - ' + albumName);
+}
+
+
+
+function msPerImage() {
+    var imageDur = trackDuration;
+    if (imageList.length > 0) {
+        // plus one to wrap around to get back to the
+        // album art
+         imageDur = trackDuration / (imageList.length + 1);
+    } 
+    return Math.max(fadeinTime + fadeinTime + 3, imageDur);
+}
+
+function getImageUrl() {
+    var tp = Math.max(0, trackPosition - fadeoutTime);
+    if (curTrack && imageList.length > 0) {
+        var idx = Math.floor(tp / msPerImage());
+        idx = idx % imageList.length;
+        return imageList[idx];
+    }
+    return null;
 }
 
 function login() {
