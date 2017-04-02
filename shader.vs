@@ -9,13 +9,14 @@ uniform float wobble1;
 uniform float wobble2;
 
 uniform vec3 eyeVector;
-
 uniform mat4 uMVMatrix;
 uniform mat4 uPMatrix;
+// uniform int uWriteDepth;
 
 varying vec4 vColor;
 varying vec3 vNormal;
 varying vec3 vEyeVector;
+varying vec4 vEyePosition;
 
 float inOutQuint(float t, float b, float c, float d) {
     t /= d;
@@ -80,7 +81,8 @@ void main(void) {
     rotpos += vec4(0.0, 0.0, z, 0.0);
     rotpos += vec4(facerandom1 * clean_z / 3.0, facerandom2 * clean_z / 3.0, 0.0, 0.0);
 
-    gl_Position = uPMatrix * uMVMatrix * rotpos;
+    vEyePosition = uPMatrix * uMVMatrix * rotpos;
+    gl_Position = uPMatrix * uMVMatrix * rotpos;// uPMatrix * uMVMatrix * rotpos;
 
     float aa = 1.0 - abs(clean_z);
 
