@@ -18,7 +18,7 @@ Enjoy.
 
 ---
 @plamere says:This is a fork of @possan's visualizer. It attempts to get more images of the artist and if they are found, these are shown in addition to the cover art
-image.  Note that at sometime in the past the Spotify API used to return more and varied artist images. How it seems to be returning only a single image for
+image.  Note that at sometime in the past the Spotify API used to return more and varied artist images. Now it seems to be returning only a single image for
 most artists, so this hack-on-top-of-a-hack is less interesting than I thought it would be.  I suppose we could go and get more images from Flicker.
 Something for another day. 
 
