@@ -145,15 +145,15 @@ void main(void) {
     float ifb = 1.0 - fb;
 
     vec4 shift =
-      vec4pow(noise(vec2(SPEED*time/7000.0 + p.x / 300.0,2.0*SPEED*time/9000.0+p.y/(30.0-fBeat1*15.0) )), 10.0)
+      vec4pow(noise(vec2(SPEED*time/7000.0 + p.x / 300.0,2.0*SPEED*time/9000.0+p.y/(25.0-fBeat1*5.0) )), 13.0)
       * fBeat1
       * vec4(AMPLITUDE, AMPLITUDE, AMPLITUDE, 1.0);
 
     o += rgbShift(tColor, p, shift) * ifb;
     o += blurred * fb;
     o += blurred * (0.04 + fBeat3 * 0.1); // always a little blur
-    // o += texture2D(tNoise, (p + bp) * 9.0 + vec2(0, time)).r * vec4(1.0,1.0,1.0,1.0) * n1.b * n1.b;
     o -= texture2D(tNoise, (p + bp) * 5.0 + vec2(time / 700.0, time / 90.0)).r * vec4(1.0,1.0,1.0,1.0) * n1.g * n1.r;
+    o *= (1.0 + 3.0 * texture2D(tNoise, (p + bp) * 9.0 + vec2(0, time)).r * n1.b);
 
     gl_FragColor = o;
 }
