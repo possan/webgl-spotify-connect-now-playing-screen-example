@@ -15,7 +15,7 @@ uniform mat4 uPMatrix;
 
 varying vec4 vColor;
 varying vec3 vNormal;
-varying vec3 vEyeVector;
+varying vec4 vEyeVector;
 varying vec4 vEyePosition;
 
 float inOutQuint(float t, float b, float c, float d) {
@@ -68,8 +68,8 @@ void main(void) {
     float clean_z = z;
 
     z *= 0.8;
-    z += (w1 * aVertexColor.x * facerandom2 / 2.0) * sin(pivot_y * 4.0 + time / 1933.0);
-    z += (w2 * aVertexColor.y * facerandom3 / 2.0) * cos(pivot_x * 4.0 + time / 1333.0);
+    z += (w1 * aVertexColor.x * facerandom2 / 2.0) * sin(pivot_y * 3.0 + time / 1933.0);
+    z += (w2 * aVertexColor.y * facerandom3 / 1.0) * cos(pivot_x * 3.0 + time / 1333.0);
 
     mat4 localrot = rotationMatrix(vec3(facerandom1 + clean_z, facerandom2, facerandom3), clean_z * 100.0 + p * facerandom2 * 30.0);
 
@@ -79,14 +79,14 @@ void main(void) {
     vec4 rotpos = localpos * localrot;
     rotpos += vec4(pivot_x, pivot_y, 0, 0);
     rotpos += vec4(0.0, 0.0, z, 0.0);
-    rotpos += vec4(facerandom1 * clean_z / 3.0, facerandom2 * clean_z / 3.0, 0.0, 0.0);
+    rotpos += vec4(facerandom1 * clean_z / 1.0, facerandom2 * clean_z / 3.0, 0.0, 0.0);
 
     vEyePosition = uPMatrix * uMVMatrix * rotpos;
     gl_Position = uPMatrix * uMVMatrix * rotpos;// uPMatrix * uMVMatrix * rotpos;
 
-    float aa = 1.0 - abs(clean_z);
+    float aa = max(0.0, 1.0 - abs(clean_z) - abs(progress / 3.0));
 
     vColor = aVertexColor * vec4(aa, aa, aa, 1.0);
     vNormal = vec3(vec4(localnorm, 0.0) * localrot);
-    vEyeVector = eyeVector;
+    vEyeVector = vec4(eyeVector, 0.0) * uPMatrix;
 }

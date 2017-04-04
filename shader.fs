@@ -2,7 +2,7 @@ precision mediump float;
 
 varying vec4 vColor;
 varying vec3 vNormal;
-varying vec3 vEyeVector;
+varying vec4 vEyeVector;
 varying vec4 vEyePosition;
 
 uniform mat4 uMVMatrix2;
@@ -11,8 +11,8 @@ uniform int uWriteDepth;
 
 void main(void) {
     vec3 lightDir = normalize(vec3(-0.3, 0.2, 0.1));
-    vec3 specular = vNormal * vEyeVector;
-    float vspec = 5.0 * pow(max(0.0, dot(reflect(-lightDir, vNormal), vEyeVector)), 3.0);
+    vec3 specular = vNormal * vEyeVector.xyz;
+    float vspec = 5.0 * pow(max(0.0, dot(reflect(-lightDir, vNormal), vEyeVector.xyz)), 3.0);
     float bri = vspec;
     if (uWriteDepth == 1) {
         gl_FragColor = vec4(vEyePosition.z * 1.0, 1.0, 0.0, 1.0);

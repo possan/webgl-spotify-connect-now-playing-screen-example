@@ -2,36 +2,42 @@ precision mediump float;
 
 uniform sampler2D tColor;
 uniform sampler2D tDepth;
+uniform sampler2D tNoise;
 
-varying vec4 vPosition;
-varying vec2 vTexture;
-// varying vec3 vEyeVector;
-
+uniform float time;
 uniform float fBeat1;
 uniform float fBeat2;
 uniform float fBeat3;
 
-// From https://github.com/Jam3/glsl-fast-gaussian-blur/blob/master/13.glsl
-vec4 blur13(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
-  vec4 color = vec4(0.0);
-  vec2 off1 = vec2(1.411764705882353) * direction;
-  vec2 off2 = vec2(3.2941176470588234) * direction;
-  vec2 off3 = vec2(5.176470588235294) * direction;
-  color += texture2D(image, uv) * 0.1964825501511404;
-  color += texture2D(image, uv + (off1 / resolution)) * 0.2969069646728344;
-  color += texture2D(image, uv - (off1 / resolution)) * 0.2969069646728344;
-  color += texture2D(image, uv + (off2 / resolution)) * 0.09447039785044732;
-  color += texture2D(image, uv - (off2 / resolution)) * 0.09447039785044732;
-  color += texture2D(image, uv + (off3 / resolution)) * 0.010381362401148057;
-  color += texture2D(image, uv - (off3 / resolution)) * 0.010381362401148057;
-  return color;
-}
+varying vec4 vPosition;
+varying vec2 vTexture;
 
-// #ifdef GL_ES
-// precision mediump float;
-// #endif
+// inspiration
+// https://www.shadertoy.com/view/XdfGDH
+// https://www.shadertoy.com/view/4t23Rc
+// https://github.com/Jam3/glsl-fast-gaussian-blur/blob/master/13.glsl
 
-// blur via https://www.shadertoy.com/view/XdfGDH
+// varying vec3 vEyeVector;
+
+// vec4 blur13(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
+//   vec4 color = vec4(0.0);
+//   vec2 off1 = vec2(1.411764705882353) * direction;
+//   vec2 off2 = vec2(3.2941176470588234) * direction;
+//   vec2 off3 = vec2(5.176470588235294) * direction;
+//   color += texture2D(image, uv) * 0.1964825501511404;
+//   color += texture2D(image, uv + (off1 / resolution)) * 0.2969069646728344;
+//   color += texture2D(image, uv - (off1 / resolution)) * 0.2969069646728344;
+//   color += texture2D(image, uv + (off2 / resolution)) * 0.09447039785044732;
+//   color += texture2D(image, uv - (off2 / resolution)) * 0.09447039785044732;
+//   color += texture2D(image, uv + (off3 / resolution)) * 0.010381362401148057;
+//   color += texture2D(image, uv - (off3 / resolution)) * 0.010381362401148057;
+//   return color;
+// }
+
+// // #ifdef GL_ES
+// // precision mediump float;
+// // #endif
+
 float normpdf(in float x, in float sigma) {
   return 0.39894*exp(-0.5*x*x/(sigma*sigma))/sigma;
 }
@@ -66,40 +72,86 @@ vec4 blurrr(sampler2D image, vec2 position, float width, float height) {
   return vec4(final_colour/(Z*Z), 1.0);
 }
 
+vec4 rgbShift(in sampler2D tex, in vec2 p, in vec4 shift) {
+    shift *= 2.0*shift.w - 1.0;
+    vec2 rs = vec2(shift.x,-shift.y);
+    vec2 gs = vec2(shift.y,-shift.z);
+    vec2 bs = vec2(shift.z,-shift.x);
+    float r = texture2D(tex, p+rs, 0.0).x;
+    float g = texture2D(tex, p+gs, 0.0).y;
+    float b = texture2D(tex, p+bs, 0.0).z;
+    return vec4(r,g,b,1.0);
+}
+
+vec4 noise( in vec2 p ) {
+    return texture2D(tNoise, p, 0.0);
+}
+
+vec4 vec4pow( in vec4 v, in float p ) {
+    // Don't touch alpha (w), we use it to choose the direction of the shift
+    // and we don't want it to go in one direction more often than the other
+    return vec4(pow(v.x,p),pow(v.y,p),pow(v.z,p),v.w);
+}
+
+#define AMPLITUDE 0.05
+#define SPEED 0.05
+
+/*
+
+
+
+
+
+
+    vec2 uv = fragCoord.xy / iResolution.xy;
+    vec2 block = floor(fragCoord.xy / vec2(16));
+  vec2 uv_noise = block / vec2(64);
+  uv_noise += floor(vec2(iGlobalTime) * vec2(1234.0, 3543.0)) / vec2(64);
+  
+  float block_thresh = pow(fract(iGlobalTime * 1236.0453), 2.0) * 0.2;
+  float line_thresh = pow(fract(iGlobalTime * 2236.0453), 3.0) * 0.7;
+  
+  vec2 uv_r = uv, uv_g = uv, uv_b = uv;
+
+    // glitch some blocks and lines
+  if  (GLITCH && (texture(iChannel1, uv_noise).r < block_thresh ||
+    texture(iChannel1, vec2(uv_noise.y, 0.0)).g < line_thresh)) {
+
+    vec2 dist = (fract(uv_noise) - 0.5) * audioEnvelope;
+    fragCoord.x -= dist.x * 250.1 * audioEnvelope;
+    fragCoord.y -= dist.y * 250.2 * audioEnvelope;
+  }
+
+
+*/
+
 void main(void) {
-    // vec3 lightDir = normalize(vec3(-0.3, 0.2, 0.1));
-    // vec3 specular = vNormal * vEyeVector;
-    // float vspec = 5.0 * pow(max(0.0, dot(reflect(-lightDir, vNormal), vEyeVector)), 3.0);
-    // float bri = vspec;
+    vec2 p = vTexture.xy;
+    vec4 n1 = vec4pow(noise(vec2(SPEED*time/1999.0+fBeat2+fBeat3,2.0*SPEED*time/8000.0+p.y/(30.0-fBeat3*7.0) )),8.0);
 
-    vec4 col = texture2D(tColor, vTexture.xy);
-    vec4 dep = texture2D(tDepth, vTexture.xy);
+    vec2 bp = vTexture.xy + vec2(0, n1.g * 0.1); // vsync problems
 
-    // vec4 col = blur13(tColor, vTexture.xy, vec2(0.1, 0.1), vec2(1.0, 0.0));
+    vec4 col = texture2D(tColor, bp);
+    vec4 dep = texture2D(tDepth, bp);
 
-    // vec4 o = vec4(0.0, vPosition.x / 10.0, vPosition.y / 10.0, 1.0) + col;
-    // o = vec4(o.r, o.g, o.b, 1.0);
-    // o = vec4(dep.r, 0.0, 0.0, 1.0);
+    col *= col;
 
-    float foc = max(0.0, min(1.0,  1.0 - (3.0 * abs(0.5 - dep.r))));
-
-    vec4 blurred = blurrr(tColor, vTexture.xy, 0.008, 0.004);// * abs(0.8 - dep.r));
-
+    vec4 blurred = blurrr(tColor, bp, 0.003, 0.003);// * abs(0.8 - dep.r));
+    vec4 col2 = texture2D(tColor, ((bp - vec2(0.5,0.5)) * vec2(0.998 + 0.03 * fBeat1,1.0 + 0.003 * fBeat1)) + vec2(0.5 + 0.01 * dep.r * fBeat1,0.5));
+    vec4 col3 = texture2D(tColor, ((bp - vec2(0.5,0.5)) * vec2(1.002 + 0.03 * fBeat1,1.0 + 0.003 * fBeat1)) + vec2(0.503 - 0.01 * dep.r * fBeat2,0.5));
     vec4 o = vec4(0.0, 0.0, 0.0, 1.0);
 
-    vec4 col2 = texture2D(tColor, ((vTexture.xy - vec2(0.5,0.5)) * vec2(0.998 + 0.003 * fBeat1,1.0 + 0.003 * fBeat1)) + vec2(0.5 + 0.001 * fBeat1,0.5));
-    vec4 col3 = texture2D(tColor, ((vTexture.xy - vec2(0.5,0.5)) * vec2(1.002 + 0.003 * fBeat1,1.0 + 0.003 * fBeat1)) + vec2(0.503 - 0.0015 * fBeat2,0.5));
+    float fb = fBeat3 * fBeat2 + n1.g + 0.3 * sin(time / 1691.0);
+    float ifb = 1.0 - fb;
 
-    o = vec4(col2.r, col.g, col3.b, 1.0);
+    vec4 shift =
+      vec4pow(noise(vec2(SPEED*time/100.0+p.x/(10.0 - 7.0*fBeat2),2.0*SPEED*time/9000.0+p.y/(30.0-fBeat1*15.0) )), 16.0)
+      * fBeat1
+      * vec4(AMPLITUDE, AMPLITUDE, AMPLITUDE, 1.0);
 
-    // o += col;// * (1.0 - dep.r * 0.3);
-
-    o += blurred * ( foc + fBeat1 * 0.3 );
-    // o /= 2.0;
-
-    // foc = dep.r;
-
-    // o += vec4(col2.r, col2.g, col3.b, 1.0);// * col3;
+    o += rgbShift(tColor, p, shift) * ifb;
+    o += blurred * fb;
+    o += blurred * (0.04 + fBeat3 * 0.1); // always a little blur
 
     gl_FragColor = o;
 }

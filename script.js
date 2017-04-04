@@ -45,6 +45,7 @@ var rttFramebuffer;
 var rttTexture;
 var rttDepthFramebuffer;
 var rttDepthTexture;
+var noiseTexture;
 var postVertexPositionBuffer;
 var postVertexTextureBuffer;
 var postVertexIndexBuffer;
@@ -104,7 +105,7 @@ function createRequest(method, url, onload) {
 }
 
 function requestFile(filename, callback) {
-  createRequest('GET', filename, function(request) {
+  createRequest('GET', filename + '?cachebust=' + Date.now(), function(request) {
     if (request.status >= 200 && request.status < 400) {
       callback(request.responseText);
     }
@@ -252,8 +253,8 @@ function initTextureFramebuffer() {
   gl.bindTexture(gl.TEXTURE_2D, rttTexture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, rttFramebuffer.width, rttFramebuffer.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
   var renderbuffer = gl.createRenderbuffer();
@@ -278,8 +279,8 @@ function initTextureFramebuffer2() {
   gl.bindTexture(gl.TEXTURE_2D, rttDepthTexture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, rttDepthFramebuffer.width, rttDepthFramebuffer.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
   var renderbuffer = gl.createRenderbuffer();
@@ -292,6 +293,24 @@ function initTextureFramebuffer2() {
   gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+function initNoiseTexture() {
+  noiseTexture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  var data = new Uint8Array(128 * 128 * 4);
+  for(var j=0; j<128*128*4; j++) {
+    data[j] = Math.floor(Math.random() * 255);
+  }
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 128, 128, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+
+  // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, rttDepthFramebuffer.width, rttDepthFramebuffer.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
 function initWebGLShader2(callback) {
@@ -331,7 +350,9 @@ function initWebGLShader2(callback) {
       shaderProgram2.vertexTextureAttribute = gl.getAttribLocation(shaderProgram2, "aVertexTexture");
       shaderProgram2.tColor = gl.getUniformLocation(shaderProgram2, "tColor");
       shaderProgram2.tDepth = gl.getUniformLocation(shaderProgram2, "tDepth");
+      shaderProgram2.tNoise = gl.getUniformLocation(shaderProgram2, "tNoise");
 
+      shaderProgram2.timeUniform = gl.getUniformLocation(shaderProgram2, "time");
       shaderProgram2.beat1Uniform = gl.getUniformLocation(shaderProgram2, "fBeat1");
       shaderProgram2.beat2Uniform = gl.getUniformLocation(shaderProgram2, "fBeat2");
       shaderProgram2.beat3Uniform = gl.getUniformLocation(shaderProgram2, "fBeat3");
@@ -376,16 +397,9 @@ function initWebGLShader1(callback) {
       gl.useProgram(shaderProgram);
 
       shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
-      // gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
-
       shaderProgram.vertexData1Attribute = gl.getAttribLocation(shaderProgram, "aVertexData1");
-      // gl.enableVertexAttribArray(shaderProgram.vertexData1Attribute);
-
       shaderProgram.vertexData2Attribute = gl.getAttribLocation(shaderProgram, "aVertexData2");
-      // gl.enableVertexAttribArray(shaderProgram.vertexData2Attribute);
-
       shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
-      // gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
 
       shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
       shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
@@ -532,26 +546,21 @@ function updateBuffers(vectordata) {
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
   cubeVertexPositionBuffer.itemSize = 3;
-  // cubeVertexPositionBuffer.numItems = vertices.length / 4;
 
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexColorBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
   cubeVertexColorBuffer.itemSize = 4;
-  // cubeVertexColorBuffer.numItems = colors.length / 4;
 
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexData1Buffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticesdata2), gl.STATIC_DRAW);
   cubeVertexData1Buffer.itemSize = 4;
-  // cubeVertexData1Buffer.numItems = verticesdata2.length / 4;
 
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexData2Buffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticesdata3), gl.STATIC_DRAW);
   cubeVertexData2Buffer.itemSize = 4;
-  // cubeVertexData2Buffer.numItems = verticesdata3.length / 4;
 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
-  // cubeVertexIndexBuffer.itemSize = 3;
   cubeVertexIndexBuffer.numItems = cubeVertexIndices.length;
 }
 
@@ -609,16 +618,13 @@ function updatePostBuffer() {
   gl.bindBuffer(gl.ARRAY_BUFFER, postVertexPositionBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
   postVertexPositionBuffer.itemSize = 3;
-  // postVertexPositionBuffer.numItems = vertices.length / 3;
 
   gl.bindBuffer(gl.ARRAY_BUFFER, postVertexTextureBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texture), gl.STATIC_DRAW);
   postVertexTextureBuffer.itemSize = 2;
-  // postVertexTextureBuffer.numItems = texture.length / 2;
 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, postVertexIndexBuffer);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-  // postVertexIndexBuffer.itemSize = 3;
   postVertexIndexBuffer.numItems = indices.length;
 
 }
@@ -626,7 +632,7 @@ function updatePostBuffer() {
 function drawScene() {
   gl.enable(gl.DEPTH_TEST);
 
-  gl.useProgram(shaderProgram);
+  // gl.useProgram(shaderProgram);
 
   var fov = 70 + 40 * Math.sin(globalTime / 9000.0);
   mat4.perspective(fov, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
@@ -686,37 +692,8 @@ function drawScene() {
 
 
 function drawScene2() {
-  gl.enable(gl.DEPTH_TEST);
-
-  gl.useProgram(shaderProgram2);
-
-  var fov = 70 + 40 * Math.sin(globalTime / 9000.0);
-  mat4.perspective(fov, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
-
-  var T = globalTime + 150 * beatDelta;
-
-  eyeFrom = [
-    0.0 + 0.3 * Math.sin(T / 1950),
-    0.0 + 0.3 * Math.cos(T / 1730),
-    0.0 + 0.4 * Math.cos(T / 1463) - 1.6 //  + 0.1 * beatValue
-  ];
-
-  eyeTo = [
-    0.0 + 0.1 * Math.sin(T / 2250),
-    0.0 + 0.1 * Math.cos(T / 1730),
-    0.0 + 0.1 * Math.cos(T / 1963) + 0.0
-  ];
-
-  vec3.subtract(eyeTo, eyeFrom, eyeVector);
-  vec3.normalize(eyeVector);
-
-  mat4.lookAt(eyeFrom, eyeTo, [
-    0.0 + 0.1 * Math.sin(globalTime / 3650),
-    1.0,
-    0.0 + 0.1 * Math.cos(globalTime / 2650)
-  ], mvMatrix);
-
-  // setMatrixUniforms();
+  // gl.enable(gl.DEPTH_TEST);
+  // gl.useProgram(shaderProgram2);
 
   if (postVertexIndexBuffer && postVertexIndexBuffer.numItems > 0) {
     gl.enableVertexAttribArray(shaderProgram2.vertexTextureAttribute);
@@ -734,6 +711,9 @@ function drawScene2() {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, rttDepthTexture);
     gl.uniform1i(shaderProgram2.tDepth, 1);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
+    gl.uniform1i(shaderProgram2.tNoise, 2);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, postVertexIndexBuffer);
     gl.drawElements(gl.TRIANGLES, postVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
@@ -776,7 +756,7 @@ function tick() {
     beatValue = 1.0;
     if (i % 2 == 0) beatValue2 = 1.0;
     if (i % 4 == 0) beatValue4 = 1.0;
-    beatDelta += 1.0;
+    if (i % 2 == 0) beatDelta += 1.0;
   }
 
   var progress = -2.0;
@@ -852,7 +832,7 @@ function tick() {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, rttDepthFramebuffer);
-  gl.useProgram(shaderProgram)
+  // gl.useProgram(shaderProgram)
   gl.uniform1f(shaderProgram.timeUniform, globalTime);
   gl.uniform1f(shaderProgram.progressUniform, progress);
   gl.uniform1f(shaderProgram.wobble1Uniform, t2);
@@ -889,10 +869,11 @@ function tick() {
 
   gl.clear(gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
-  gl.enable(gl.BLEND);
+  gl.disable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-  // gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+  // gl.blendFunc(gl.ONE, gl.ONE);
   gl.useProgram(shaderProgram2)
+  gl.uniform1f(shaderProgram2.timeUniform, globalTime);
   gl.uniform1f(shaderProgram2.beat1Uniform, beatValue);
   gl.uniform1f(shaderProgram2.beat2Uniform, beatValue2);
   gl.uniform1f(shaderProgram2.beat3Uniform, beatValue4);
@@ -905,15 +886,15 @@ function tick() {
   }
   globalTime = timeNow - firstTime;
 
-  beatValue -= 0.03;
+  beatValue -= 0.015;
   if (beatValue < 0.0) {
     beatValue = 0.0;
   }
-  beatValue2 -= 0.03;
+  beatValue2 -= 0.015;
   if (beatValue2 < 0.0) {
     beatValue2 = 0.0;
   }
-  beatValue4 -= 0.03;
+  beatValue4 -= 0.015;
   if (beatValue4 < 0.0) {
     beatValue4 = 0.0;
   }
@@ -1104,6 +1085,7 @@ function bootstrap() {
   initWebGL(document.getElementById("canvas"));
   initTextureFramebuffer();
   initTextureFramebuffer2();
+  initNoiseTexture();
   initWebGLBuffers();
   initKeyboard();
   initUI();
