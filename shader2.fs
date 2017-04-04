@@ -153,7 +153,16 @@ void main(void) {
     o += blurred * fb;
     o += blurred * (0.04 + fBeat3 * 0.1); // always a little blur
     o -= texture2D(tNoise, (p + bp) * 5.0 + vec2(time / 700.0, time / 90.0)).r * vec4(1.0,1.0,1.0,1.0) * n1.g * n1.r;
-    o *= (1.0 + 3.0 * texture2D(tNoise, (p + bp) * 9.0 + vec2(0, time)).r * n1.b);
+    o *= (1.0 + 3.0 * texture2D(tNoise, (p + bp) * 9.0 + vec2(0, time / 19.0)).r * n1.b);
+
+    vec2 pc = 1.0 * (p - vec2(0.5, 0.5));
+    pc *= pc;
+    float l = length(pc);
+
+    // o *= vec4(1.0,1.0,1.0,1.0) * (1.0 - l * 5.0);
+    o *= vec4(1.0,1.0,1.0,1.0) * (1.0 - l * 3.0);
+
+    // o += vec4(0.1, 0.1, 0.1, 1.0) * (1.0 - l * 7.0) * texture2D(tNoise, (p + bp) * 9.0 + vec2(0, time / 19.0)).r;
 
     gl_FragColor = o;
 }
