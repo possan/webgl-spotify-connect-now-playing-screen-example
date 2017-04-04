@@ -129,23 +129,23 @@ void main(void) {
     vec2 p = vTexture.xy;
     vec4 n1 = vec4pow(noise(vec2(SPEED*time/1999.0+fBeat2+fBeat3,2.0*SPEED*time/8000.0+p.y/(30.0-fBeat3*7.0) )),8.0);
 
-    vec2 bp = vTexture.xy + vec2(0, n1.g * 0.1); // vsync problems
+    vec2 bp = vTexture.xy + vec2(0, n1.g * 0.2); // vsync problems
 
-    vec4 col = texture2D(tColor, bp);
+    // vec4 col = texture2D(tColor, bp);
     vec4 dep = texture2D(tDepth, bp);
 
-    col *= col;
+    // col *= col;
 
     vec4 blurred = blurrr(tColor, bp, 0.003, 0.003);// * abs(0.8 - dep.r));
-    vec4 col2 = texture2D(tColor, ((bp - vec2(0.5,0.5)) * vec2(0.998 + 0.03 * fBeat1,1.0 + 0.003 * fBeat1)) + vec2(0.5 + 0.01 * dep.r * fBeat1,0.5));
-    vec4 col3 = texture2D(tColor, ((bp - vec2(0.5,0.5)) * vec2(1.002 + 0.03 * fBeat1,1.0 + 0.003 * fBeat1)) + vec2(0.503 - 0.01 * dep.r * fBeat2,0.5));
+    // vec4 col2 = texture2D(tColor, ((bp - vec2(0.5,0.5)) * vec2(0.998 + 0.03 * fBeat1,1.0 + 0.003 * fBeat1)) + vec2(0.5 + 0.01 * dep.r * fBeat1,0.5));
+    // vec4 col3 = texture2D(tColor, ((bp - vec2(0.5,0.5)) * vec2(1.002 + 0.03 * fBeat1,1.0 + 0.003 * fBeat1)) + vec2(0.503 - 0.01 * dep.r * fBeat2,0.5));
     vec4 o = vec4(0.0, 0.0, 0.0, 1.0);
 
-    float fb = fBeat3 * fBeat2 + n1.g + 0.3 * sin(time / 1691.0);
+    float fb = (fBeat3 * fBeat2) + n1.g + 0.3 * sin(time / 3791.0);
     float ifb = 1.0 - fb;
 
     vec4 shift =
-      vec4pow(noise(vec2(SPEED*time/100.0+p.x/(10.0 - 7.0*fBeat2),2.0*SPEED*time/9000.0+p.y/(30.0-fBeat1*15.0) )), 16.0)
+      vec4pow(noise(vec2(SPEED*time/100.0+p.x/(10.0 - 7.0*fBeat2),2.0*SPEED*time/9000.0+p.y/(30.0-fBeat1*15.0) )), 10.0)
       * fBeat1
       * vec4(AMPLITUDE, AMPLITUDE, AMPLITUDE, 1.0);
 

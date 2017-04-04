@@ -634,7 +634,7 @@ function drawScene() {
 
   // gl.useProgram(shaderProgram);
 
-  var fov = 70 + 40 * Math.sin(globalTime / 9000.0);
+  var fov = 80 + 20 * Math.sin(globalTime / 5000.0);
   mat4.perspective(fov, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
 
   var T = globalTime + 150 * beatDelta;
