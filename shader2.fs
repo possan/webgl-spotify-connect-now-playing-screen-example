@@ -93,7 +93,7 @@ vec4 vec4pow( in vec4 v, in float p ) {
     return vec4(pow(v.x,p),pow(v.y,p),pow(v.z,p),v.w);
 }
 
-#define AMPLITUDE 0.05
+#define AMPLITUDE 0.1
 #define SPEED 0.05
 
 /*
@@ -127,7 +127,7 @@ vec4 vec4pow( in vec4 v, in float p ) {
 
 void main(void) {
     vec2 p = vTexture.xy;
-    vec4 n1 = vec4pow(noise(vec2(SPEED*time/1999.0+fBeat2+fBeat3,2.0*SPEED*time/8000.0+p.y/(30.0-fBeat3*7.0) )),8.0);
+    vec4 n1 = vec4pow(noise(vec2(SPEED*time/4999.0 + sin(time/13100.0),2.0*SPEED*time/8000.0+p.y/(10.0-fBeat3*2.0) )),13.0);
 
     vec2 bp = vTexture.xy + vec2(0, n1.g * 0.2); // vsync problems
 
@@ -145,13 +145,15 @@ void main(void) {
     float ifb = 1.0 - fb;
 
     vec4 shift =
-      vec4pow(noise(vec2(SPEED*time/100.0+p.x/(10.0 - 7.0*fBeat2),2.0*SPEED*time/9000.0+p.y/(30.0-fBeat1*15.0) )), 10.0)
+      vec4pow(noise(vec2(SPEED*time/7000.0 + p.x / 300.0,2.0*SPEED*time/9000.0+p.y/(30.0-fBeat1*15.0) )), 10.0)
       * fBeat1
       * vec4(AMPLITUDE, AMPLITUDE, AMPLITUDE, 1.0);
 
     o += rgbShift(tColor, p, shift) * ifb;
     o += blurred * fb;
     o += blurred * (0.04 + fBeat3 * 0.1); // always a little blur
+    // o += texture2D(tNoise, (p + bp) * 9.0 + vec2(0, time)).r * vec4(1.0,1.0,1.0,1.0) * n1.b * n1.b;
+    o -= texture2D(tNoise, (p + bp) * 5.0 + vec2(time / 700.0, time / 90.0)).r * vec4(1.0,1.0,1.0,1.0) * n1.g * n1.r;
 
     gl_FragColor = o;
 }
