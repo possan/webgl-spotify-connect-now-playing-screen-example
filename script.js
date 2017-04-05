@@ -224,7 +224,7 @@ function initWebGL(canvas) {
     alert("Could not initialise WebGL, sorry :-( *sad panda*");
   }
 
-  var downsample = 1; // reduce rendering quality
+  var downsample = 2; // reduce rendering quality
 
   function fit() {
     var w = document.body.offsetWidth;
